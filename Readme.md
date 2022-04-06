@@ -18,7 +18,7 @@ To easily install all dependencies you need [vcpkg](https://vcpkg.io/) C++ depen
 
 Before running package bash scripts you need to export `VCPKG` variable containing your vcpkg location by running: 
 
-`export VCPKG_PATH="where vcpkg is installed"`.
+`export VCPKG_ROOT="where vcpkg is installed"`.
 
 After you need to install all dependencies by running `./install.sh` script from the project root directory.
 

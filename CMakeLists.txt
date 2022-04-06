@@ -7,9 +7,6 @@ endif()
 
 project(testapp VERSION 0.1.0)
 
-include(CTest)
-enable_testing()
-
 add_executable(testapp main.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 
