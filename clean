@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+echo "Cleaning the build cache..."
+rm -dfr bin build

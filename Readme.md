@@ -1,39 +1,52 @@
 # COMM Services boilerplate
 
-This is a boilerplate of [COMM project services](https://github.com/CommE2E/comm/tree/master/services) for playground purposes with all dependencies included.
+This is a boilerplate of [COMM project services](https://github.com/CommE2E/comm/tree/master/services)
+for playground purposes with all dependencies included.
 
-It tested to be usable on macOS, but Linux OS can be good too.
+It is tested to be built on macOS, Ubuntu, or inside the Docker container.
 
 ## Why?
 
-The COMM services have many dependencies and significant time to build the app. 
+The COMM services have many dependencies and significant time to build the app.
 
-In case you need to test some of your theory in a small part of the code it can be built and tested using this playground boilerplate. Without Docker and long building the whole service app.
+In case you need to test some of your theory in a small part of the code, it can be built
+and tested using this playground boilerplate. Without Docker and long building the whole service app
+and complicated install scripts.
 
 ## Requirements
 
-**Cmake** needs to be installed using the [homebrew](https://brew.sh/).
+`cmake` and `g++` needs to be installed using the [homebrew](https://brew.sh/) command:
 
-To easily install all dependencies you need [vcpkg](https://vcpkg.io/) C++ dependency manager on your system.
+`brew install cmake g++`
 
-Before running package bash scripts you need to export `VCPKG` variable containing your vcpkg location by running: 
+To easily install all dependencies you need [vcpkg](https://vcpkg.io/) C++ dependency
+manager installed on your system.
+
+Before `cmake` you need to export `VCPKG` variable containing your vcpkg location by running:
 
 `export VCPKG_ROOT="where vcpkg is installed"`.
 
-After you need to install all dependencies by running `./install.sh` script from the project root directory.
+## Build and run locally
 
-## Build and run
+To build and run the `main.cpp` first execute configure command
+`cmake -B build -DCMAKE_BUILD_TYPE=Release` from the repo's root directory.
+It will configure and install all the dependencies from `vcpkg.json` manifest file.
 
-To build and run the `main.cpp` you can run `./build.sh`. 
+Then build using `make -C build -j` command.
+A Binary app will be built in the `bin/testapp`.
 
-It will build the `testapp` and run it after successfully being built.
+## Build and run inside the Docker
 
-## Dependencies included
+To build a Docker image you can run:
 
-- folly
-- boost
-- amqpcpp
-- cryptopp
-- libuv
-- glog
-- aws-cpp-sdk-[core, dynamodb, s3]
+`docker build -t testapp .`
+
+It will create and build the app inside the docker image. You can run the app after by
+running `docker run testapp /opt/tunnelbroker/bin/testapp`.
+
+## VSCode integration
+
+To use IntelliSense, debug and build the app from VSCode you need to install the CMake
+extension. After installation, you need just open the repository directory and VSCode
+automatically checks the includes.
+You can build and debug without any additional setup steps.

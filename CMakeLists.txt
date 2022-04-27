@@ -1,30 +1,107 @@
 cmake_minimum_required(VERSION 3.0.0)
+cmake_policy(SET CMP0058 NEW)
 
-if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-  set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "")
+# Use vcpkg cmake toolchain
+if(DEFINED ENV{VCPKG_ROOT})
+  set(VCPKG_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+  set(
+    CMAKE_TOOLCHAIN_FILE
+    ${VCPKG_TOOLCHAIN_FILE}
+  )
+  message("Using vcpkg toolchain file from ${VCPKG_TOOLCHAIN_FILE}")
+else()
+  message(FATAL_ERROR "Please provide vcpkg path using `export VCPKG_ROOT=/path/vcpkg`")
 endif()
 
+# Project settings
 project(testapp VERSION 0.1.0)
+set(CMAKE_CXX_STANDARD 17)
+set(CPACK_PROJECT_NAME ${PROJECT_NAME})
+set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../bin)
+include(CPack)
 
-add_executable(testapp main.cpp)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
+# Verbose cmake on Debug release type
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+  set(CMAKE_VERBOSE_MAKEFILE ON)
+endif()
 
+# Protocol Buffers files generation
+set(PROTO_FILES protos/helloworld.proto)
+find_package(Protobuf CONFIG REQUIRED)
+find_package(gRPC CONFIG REQUIRED)
+
+get_target_property(
+  gRPC_CPP_PLUGIN_EXECUTABLE
+  gRPC::grpc_cpp_plugin
+  IMPORTED_LOCATION_RELEASE
+)
+
+include_directories(${Protobuf_INCLUDE_DIRS})
+add_library(protobufLib ${PROTO_FILES})
+
+get_target_property(grpc_cpp_plugin_location gRPC::grpc_cpp_plugin LOCATION)
+protobuf_generate(TARGET protobufLib LANGUAGE cpp)
+protobuf_generate(
+  TARGET protobufLib
+  LANGUAGE grpc
+  GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+  PLUGIN "protoc-gen-grpc=${grpc_cpp_plugin_location}"
+)
+
+target_link_libraries(
+  protobufLib PUBLIC
+  protobuf::libprotobuf gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection
+)
+
+# Server requirements
 find_package(folly CONFIG REQUIRED)
 find_package(amqpcpp CONFIG REQUIRED)
 find_package(cryptopp CONFIG REQUIRED)
 find_package(unofficial-libuv CONFIG REQUIRED)
 find_package(glog CONFIG REQUIRED)
-
-target_link_libraries(testapp PRIVATE Folly::folly Folly::folly_deps Folly::follybenchmark Folly::folly_test_util)
-target_link_libraries(testapp PRIVATE amqpcpp cryptopp-static unofficial::libuv::libuv glog::glog)
-
+find_package(double-conversion CONFIG REQUIRED)
+find_package(re2 CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(aws-cpp-sdk-core REQUIRED)
-find_package(aws-cpp-sdk-dynamodb REQUIRED)
 find_package(aws-cpp-sdk-s3 REQUIRED)
-target_include_directories(testapp PRIVATE aws-cpp-sdk-core aws-cpp-sdk-dynamodb aws-cpp-sdk-s3)
-target_link_libraries(testapp PRIVATE aws-cpp-sdk-core aws-cpp-sdk-dynamodb aws-cpp-sdk-s3)
+find_package(aws-cpp-sdk-dynamodb REQUIRED)
+find_package(GTest CONFIG REQUIRED)
 
-set(CPACK_PROJECT_NAME ${PROJECT_NAME})
-set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
-include(CPack)
+file(GLOB SOURCE_CODE "./src/*.cpp" "./src/**/*.cpp")
+include_directories(./src ${CMAKE_CURRENT_BINARY_DIR})
+
+set(
+  SOURCE_CODE
+  ${SOURCE_CODE}
+)
+
+add_executable(
+  ${PROJECT_NAME}
+  ${SOURCE_CODE}
+)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE protobufLib)
+target_link_libraries(${PROJECT_NAME} PRIVATE Folly::folly Folly::folly_deps)
+target_link_libraries(${PROJECT_NAME} PRIVATE amqpcpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE cryptopp-static)
+target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::libuv::libuv)
+target_link_libraries(${PROJECT_NAME} PRIVATE glog::glog)
+target_link_libraries(${PROJECT_NAME} PRIVATE double-conversion::double-conversion)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock GTest::gtest)
+target_link_libraries(${PROJECT_NAME} PRIVATE re2::re2 c-ares::cares)
+
+target_link_libraries(
+  ${PROJECT_NAME} PRIVATE
+  aws-cpp-sdk-core aws-cpp-sdk-s3 aws-cpp-sdk-dynamodb
+)
+target_include_directories(
+  ${PROJECT_NAME} PRIVATE
+  aws-cpp-sdk-core aws-cpp-sdk-s3 aws-cpp-sdk-dynamodb
+)
+
+install(
+  TARGETS ${PROJECT_NAME}
+  RUNTIME DESTINATION ../bin
+)
