@@ -7,10 +7,20 @@ if(DEFINED ENV{VCPKG_ROOT})
   set(
     CMAKE_TOOLCHAIN_FILE
     ${VCPKG_TOOLCHAIN_FILE}
+    CACHE STRING ""
   )
   message("Using vcpkg toolchain file from ${VCPKG_TOOLCHAIN_FILE}")
-else()
-  message(FATAL_ERROR "Please provide vcpkg path using `export VCPKG_ROOT=/path/vcpkg`")
+elseif(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+  message(
+    FATAL_ERROR 
+    "Please provide vcpkg path using `export VCPKG_ROOT=/path/vcpkg` \
+    or by `-DCMAKE_TOOLCHAIN_FILE` argument"
+  )
+endif()
+set(VCPKG_MANIFEST_MODE ON)
+set(VCPKG_INSTALL_OPTIONS "--recurse")
+if(CMAKE_BUILD_TYPE MATCHES Release)
+  set(VCPKG_INSTALL_OPTIONS "--clean-after-build")
 endif()
 
 # Project settings
@@ -21,7 +31,7 @@ set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ../bin)
 include(CPack)
 
-# Verbose cmake on Debug release type
+# Make cmake verbose on Debug release type
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_VERBOSE_MAKEFILE ON)
 endif()
@@ -63,13 +73,20 @@ find_package(glog CONFIG REQUIRED)
 find_package(double-conversion CONFIG REQUIRED)
 find_package(re2 CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(aws-cpp-sdk-core REQUIRED)
-find_package(aws-cpp-sdk-s3 REQUIRED)
-find_package(aws-cpp-sdk-dynamodb REQUIRED)
+find_package(Boost REQUIRED)
+find_package(AWSSDK CONFIG COMPONENTS core dynamodb s3 REQUIRED)
 find_package(GTest CONFIG REQUIRED)
 
 file(GLOB SOURCE_CODE "./src/*.cpp" "./src/**/*.cpp")
-include_directories(./src ${CMAKE_CURRENT_BINARY_DIR})
+include_directories(
+  ./src 
+  ${CMAKE_CURRENT_BINARY_DIR}
+  ${Folly_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
+  ${CRYPTOPP_INCLUDE_DIRS}
+  ${LIBUV_INCLUDE_DIRS}
+  ${AWSSDK_INCLUDE_DIRS}
+)
 
 set(
   SOURCE_CODE
@@ -83,23 +100,15 @@ add_executable(
 
 target_link_libraries(${PROJECT_NAME} PRIVATE protobufLib)
 target_link_libraries(${PROJECT_NAME} PRIVATE Folly::folly Folly::folly_deps)
-target_link_libraries(${PROJECT_NAME} PRIVATE amqpcpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE cryptopp-static)
 target_link_libraries(${PROJECT_NAME} PRIVATE unofficial::libuv::libuv)
+target_link_libraries(${PROJECT_NAME} PRIVATE amqpcpp)
 target_link_libraries(${PROJECT_NAME} PRIVATE glog::glog)
 target_link_libraries(${PROJECT_NAME} PRIVATE double-conversion::double-conversion)
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 target_link_libraries(${PROJECT_NAME} PRIVATE GTest::gmock GTest::gtest)
 target_link_libraries(${PROJECT_NAME} PRIVATE re2::re2 c-ares::cares)
-
-target_link_libraries(
-  ${PROJECT_NAME} PRIVATE
-  aws-cpp-sdk-core aws-cpp-sdk-s3 aws-cpp-sdk-dynamodb
-)
-target_include_directories(
-  ${PROJECT_NAME} PRIVATE
-  aws-cpp-sdk-core aws-cpp-sdk-s3 aws-cpp-sdk-dynamodb
-)
+target_link_libraries(${PROJECT_NAME} PRIVATE ${AWSSDK_LIBRARIES})
 
 install(
   TARGETS ${PROJECT_NAME}
